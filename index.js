@@ -7,7 +7,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: 'https://checkmatewellness.com', // Only allow your domain
+  origin: 'https://checkmatewellness.com', // Restrict to your domain
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type']
 }));
@@ -18,18 +18,24 @@ app.post('/create-payment-intent', async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: 7500, // $75.00 in cents
       currency: 'usd',
-      automatic_payment_methods: { enabled: true },
-      metadata: { product: 'Custom Herb Package' }
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: {
+        product: 'Custom Herb Package'
+      }
     });
 
-    res.json({ clientSecret: paymentIntent.client_secret });
+    res.json({
+      clientSecret: paymentIntent.client_secret
+    });
   } catch (err) {
     console.error('Error creating payment intent:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Webhook to handle successful payments (optional)
+// Webhook to handle successful payments (optional but recommended)
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   let event;
 
@@ -57,8 +63,13 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   res.sendStatus(200);
 });
 
-// Start server
-const PORT = process.env.PORT || 4242;
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.send('Checkmate Wellness Stripe server is running on port 4242');
+});
+
+// Force port 4242 explicitly
+const PORT = 4242;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
