@@ -4,7 +4,7 @@ const stripe = require('stripe')('sk_live_51Qle1WGYPx8D24nPVWZlDR9qvmNVcNL3oIeeT
 
 const app = express();
 
-// Middleware
+// Middleware setup (ORDER MATTERS)
 app.use(express.json());
 app.use(cors({
   origin: [
@@ -15,27 +15,24 @@ app.use(cors({
   allowedHeaders: ['Content-Type']
 }));
 
-// Create PaymentIntent
-app.post('/create-payment-intent', async (req, res) => {
-  try {
-    // Create a PaymentIntent with the order amount and currency
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: 7500, // $75.00 in cents
-      currency: 'usd',
-      // Verify your integration by passing this parameter with your key
-      automatic_payment_methods: {
-        enabled: true,
-      },
-      // Optional metadata to track orders
-      metadata: {
-        product: 'Custom Herb Package'
-      }
-    });
+// Request logger
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
 
-    // Send the client secret to the client
-    res.json({
-      clientSecret: paymentIntent.client_secret
+// Create PaymentIntent
+app.post('/create-payment-intent', express.json(), async (req, res) => {
+  console.log('POST request received to /create-payment-intent');
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: 7500,
+      currency: 'usd',
+      automatic_payment_methods: { enabled: true },
+      metadata: { product: 'Custom Herb Package' }
     });
+    console.log('Payment intent created:', paymentIntent.id);
+    res.json({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
     console.error('Error creating payment intent:', err);
     res.status(500).json({ error: err.message });
@@ -76,6 +73,26 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 // Health check endpoint
 app.get('/', (req, res) => {
   res.send('Checkmate Wellness Stripe server is running on port 4242');
+});
+
+// Diagnostic endpoint
+app.get('/routes', (req, res) => {
+  const routes = [];
+  app._router.stack.forEach(middleware => {
+    if (middleware.route) {
+      routes.push({
+        path: middleware.route.path,
+        methods: Object.keys(middleware.route.methods)
+      });
+    }
+  });
+  res.json(routes);
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Global error handler caught:', err);
+  res.status(500).json({ error: 'Internal server error' });
 });
 
 // Force port 4242 explicitly
