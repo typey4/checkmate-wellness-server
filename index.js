@@ -7,7 +7,10 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({
-  origin: 'https://checkmatewellness.com', // Restrict to your domain
+  origin: [
+    'https://checkmatewellness.com',
+    'https://app.gohighlevel.com'
+  ],
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type']
 }));
@@ -15,17 +18,21 @@ app.use(cors({
 // Create PaymentIntent
 app.post('/create-payment-intent', async (req, res) => {
   try {
+    // Create a PaymentIntent with the order amount and currency
     const paymentIntent = await stripe.paymentIntents.create({
       amount: 7500, // $75.00 in cents
       currency: 'usd',
+      // Verify your integration by passing this parameter with your key
       automatic_payment_methods: {
         enabled: true,
       },
+      // Optional metadata to track orders
       metadata: {
         product: 'Custom Herb Package'
       }
     });
 
+    // Send the client secret to the client
     res.json({
       clientSecret: paymentIntent.client_secret
     });
@@ -41,6 +48,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
 
   try {
     const signature = req.headers['stripe-signature'];
+    // You would need to set STRIPE_WEBHOOK_SECRET as an environment variable
     event = stripe.webhooks.constructEvent(
       req.body,
       signature,
@@ -51,10 +59,12 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
     return res.sendStatus(400);
   }
 
+  // Handle the event
   switch (event.type) {
     case 'payment_intent.succeeded':
       const paymentIntent = event.data.object;
       console.log(`PaymentIntent ${paymentIntent.id} succeeded`);
+      // Here you can fulfill the order
       break;
     default:
       console.log(`Unhandled event type ${event.type}`);
