@@ -31,6 +31,7 @@ app.post('/create-payment-intent', express.json(), async (req, res) => {
       automatic_payment_methods: { enabled: true },
       metadata: { product: 'Custom Herb Package' }
     });
+    //changes message
     console.log('Payment intent created successfully:', paymentIntent.id);
     res.json({ clientSecret: paymentIntent.client_secret });
   } catch (err) {
