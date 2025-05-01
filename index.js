@@ -25,11 +25,12 @@ app.use((req, res, next) => {
 app.post('/create-payment-intent', express.json(), async (req, res) => {
   console.log('POST request received to /create-payment-intent');
   try {
+    const { amount, product_name } = req.body;
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: 7500,
+      amount: Number(amount),
       currency: 'usd',
       automatic_payment_methods: { enabled: true },
-      metadata: { product: 'Custom Herb Package' }
+      metadata: { product_name: product_name }
     });
     //changes message
     console.log('Payment intent created successfully:', paymentIntent.id);
