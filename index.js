@@ -62,6 +62,7 @@ app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res)
   switch (event.type) {
     case 'payment_intent.succeeded':
       const paymentIntent = event.data.object;
+      console.log('event',event.data)
       console.log(`PaymentIntent ${paymentIntent.id} succeeded`);
       // Here you can fulfill the order
       break;
