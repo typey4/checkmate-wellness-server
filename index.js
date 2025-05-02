@@ -42,7 +42,7 @@ app.post('/create-payment-intent', express.json(), async (req, res) => {
 });
 
 // Create GHL Contact
-app.post('/create-update-ghl-contact', express.json(), async (req, res) => {
+app.post('/create-update-ghl-contact', async (req, res) => {
   console.log('POST request received to /create-update-ghl-contact');
 
   try {
@@ -55,73 +55,67 @@ app.post('/create-update-ghl-contact', express.json(), async (req, res) => {
     const searchQuery = customerData.email
       ? `email=${encodeURIComponent(customerData.email)}`
       : customerData.phone
-        ? `phone=${encodeURIComponent(customerData.phone)}`
-        : null;
+      ? `phone=${encodeURIComponent(customerData.phone)}`
+      : null;
 
     if (!searchQuery) {
       return res.status(400).json({ error: 'Missing email or phone to search contact' });
     }
 
-    const existingResponse = await axios.get(`https://rest.gohighlevel.com/v1/contacts/lookup?${searchQuery}`, {
+    const token = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6IkZmb2tkeldEZ2oyQ085WUFudWJVIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ2MjA0NjgxOTg1LCJzdWIiOiJITFBTSGdPakxRdkJBbGxzeExlbCJ9.GMDwcdawPX0x2tE58jXbUtZftM7vKqMrAbKJGYa72X8';
+
+    const searchResponse = await fetch(`https://rest.gohighlevel.com/v1/contacts/lookup?${searchQuery}`, {
+      method: 'GET',
       headers: {
-        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6IkZmb2tkeldEZ2oyQ085WUFudWJVIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ2MjA0NjgxOTg1LCJzdWIiOiJITFBTSGdPakxRdkJBbGxzeExlbCJ9.GMDwcdawPX0x2tE58jXbUtZftM7vKqMrAbKJGYa72X8`,
+        Authorization: token,
       },
     });
 
-    const existingContact = existingResponse.data.contacts?.[0];
-    if (existingContact) {
-      const CONTACT_ID = existingContact.id;
-      // ✅ Contact exists — update
-      const response = await axios.put(`https://rest.gohighlevel.com/v1/contacts/${CONTACT_ID}`,
-        {
-          email: customerData.email,
-          name: customerData.name,
-          phone: customerData.phone,
-          address1: customerData.address?.line1,
-          city: customerData.address?.city,
-          state: customerData.address?.state,
-          postalCode: customerData.address?.postal_code,
-          country: customerData.address?.country,
-          customField: {
-            symptoms_reported: customerData?.symptoms?.symptoms_reported,
-            symptoms: customerData?.symptoms?.custom_symptom_input,
-            payment_intent_client_secret: payment_intent_client_secret
-          }
-        },
-        {
-          headers: {
-            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6IkZmb2tkeldEZ2oyQ085WUFudWJVIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ2MjA0NjgxOTg1LCJzdWIiOiJITFBTSGdPakxRdkJBbGxzeExlbCJ9.GMDwcdawPX0x2tE58jXbUtZftM7vKqMrAbKJGYa72X8`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-      return res.json({ success: true, message: 'Contact already exists', contactId: existingContact.id });
-    } else {
-      // ✅ Contact does not exist — create it
-      const createResponse = await axios.post(`https://rest.gohighlevel.com/v1/contacts/`,
-        {
-          email: customerData.email,
-          name: customerData.name,
-          phone: customerData.phone,
-          address1: customerData.address?.line1,
-          city: customerData.address?.city,
-          state: customerData.address?.state,
-          postalCode: customerData.address?.postal_code,
-          country: customerData.address?.country,
-          customField: {
-            symptoms_reported: customerData?.symptoms?.symptoms_reported,
-            symptoms: customerData?.symptoms?.custom_symptom_input,
-            payment_intent_client_secret: payment_intent_client_secret
-          }
-        },
-        {
-          headers: {
-            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6IkZmb2tkeldEZ2oyQ085WUFudWJVIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ2MjA0NjgxOTg1LCJzdWIiOiJITFBTSGdPakxRdkJBbGxzeExlbCJ9.GMDwcdawPX0x2tE58jXbUtZftM7vKqMrAbKJGYa72X8`,
-            'Content-Type': 'application/json'
-          },
-        });
+    const searchData = await searchResponse.json();
+    const existingContact = searchData.contacts?.[0];
 
-      res.json({ success: true, message: 'Contact data received' });
+    const contactPayload = {
+      email: customerData.email,
+      name: customerData.name,
+      phone: customerData.phone,
+      address1: customerData.address?.line1,
+      city: customerData.address?.city,
+      state: customerData.address?.state,
+      postalCode: customerData.address?.postal_code,
+      country: customerData.address?.country,
+      customField: {
+        symptoms_reported: customerData?.symptoms?.symptoms_reported,
+        symptoms: customerData?.symptoms?.custom_symptom_input,
+        payment_intent_client_secret: payment_intent_client_secret
+      }
+    };
+
+    if (existingContact) {
+      const contactId = existingContact.id;
+
+      // ✅ Update contact
+      await fetch(`https://rest.gohighlevel.com/v1/contacts/${contactId}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contactPayload),
+      });
+
+      return res.json({ success: true, message: 'Contact already exists', contactId });
+    } else {
+      // ✅ Create contact
+      await fetch(`https://rest.gohighlevel.com/v1/contacts/`, {
+        method: 'POST',
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contactPayload),
+      });
+
+      return res.json({ success: true, message: 'Contact created successfully' });
     }
   } catch (err) {
     console.error('Error creating GHL contact:', err);
