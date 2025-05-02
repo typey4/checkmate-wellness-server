@@ -44,16 +44,91 @@ app.post('/create-payment-intent', express.json(), async (req, res) => {
 // Create GHL Contact
 app.post('/create-update-ghl-contact', express.json(), async (req, res) => {
   console.log('POST request received to /create-update-ghl-contact');
+
   try {
-    const { customerData } = req.body;
-    console.log('Customer data received', customerData);
-   
-    res.json({ success: true, message: 'Contact data received' });
+    const { customerData, payment_intent_client_secret } = req.body;
+
+    if (!customerData || !customerData.email) {
+      return res.status(400).json({ error: 'Missing required customer data (email).' });
+    }
+
+    const searchQuery = customerData.email
+      ? `email=${encodeURIComponent(customerData.email)}`
+      : customerData.phone
+        ? `phone=${encodeURIComponent(customerData.phone)}`
+        : null;
+
+    if (!searchQuery) {
+      return res.status(400).json({ error: 'Missing email or phone to search contact' });
+    }
+
+    const existingResponse = await axios.get(`https://rest.gohighlevel.com/v1/contacts/lookup?${searchQuery}`, {
+      headers: {
+        Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6IkZmb2tkeldEZ2oyQ085WUFudWJVIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ2MjA0NjgxOTg1LCJzdWIiOiJITFBTSGdPakxRdkJBbGxzeExlbCJ9.GMDwcdawPX0x2tE58jXbUtZftM7vKqMrAbKJGYa72X8`,
+      },
+    });
+
+    const existingContact = existingResponse.data.contacts?.[0];
+    if (existingContact) {
+      const CONTACT_ID = existingContact.id;
+      // ✅ Contact exists — update
+      const response = await axios.put(`https://rest.gohighlevel.com/v1/contacts/${CONTACT_ID}`,
+        {
+          email: customerData.email,
+          name: customerData.name,
+          phone: customerData.phone,
+          address1: customerData.address?.line1,
+          city: customerData.address?.city,
+          state: customerData.address?.state,
+          postalCode: customerData.address?.postal_code,
+          country: customerData.address?.country,
+          customField: {
+            symptoms_reported: customerData?.symptoms?.symptoms_reported,
+            symptoms: customerData?.symptoms?.custom_symptom_input,
+            payment_intent_client_secret: payment_intent_client_secret
+          }
+        },
+        {
+          headers: {
+            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6IkZmb2tkeldEZ2oyQ085WUFudWJVIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ2MjA0NjgxOTg1LCJzdWIiOiJITFBTSGdPakxRdkJBbGxzeExlbCJ9.GMDwcdawPX0x2tE58jXbUtZftM7vKqMrAbKJGYa72X8`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      return res.json({ success: true, message: 'Contact already exists', contactId: existingContact.id });
+    } else {
+      // ✅ Contact does not exist — create it
+      const createResponse = await axios.post(`https://rest.gohighlevel.com/v1/contacts/`,
+        {
+          email: customerData.email,
+          name: customerData.name,
+          phone: customerData.phone,
+          address1: customerData.address?.line1,
+          city: customerData.address?.city,
+          state: customerData.address?.state,
+          postalCode: customerData.address?.postal_code,
+          country: customerData.address?.country,
+          customField: {
+            symptoms_reported: customerData?.symptoms?.symptoms_reported,
+            symptoms: customerData?.symptoms?.custom_symptom_input,
+            payment_intent_client_secret: payment_intent_client_secret
+          }
+        },
+        {
+          headers: {
+            Authorization: `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb2NhdGlvbl9pZCI6IkZmb2tkeldEZ2oyQ085WUFudWJVIiwidmVyc2lvbiI6MSwiaWF0IjoxNzQ2MjA0NjgxOTg1LCJzdWIiOiJITFBTSGdPakxRdkJBbGxzeExlbCJ9.GMDwcdawPX0x2tE58jXbUtZftM7vKqMrAbKJGYa72X8`,
+            'Content-Type': 'application/json'
+          },
+        });
+
+      res.json({ success: true, message: 'Contact data received' });
+    }
   } catch (err) {
     console.error('Error creating GHL contact:', err);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // Webhook to handle successful payments (optional but recommended)
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
