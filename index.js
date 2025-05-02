@@ -41,6 +41,20 @@ app.post('/create-payment-intent', express.json(), async (req, res) => {
   }
 });
 
+// Create GHL Contact
+app.post('/create-update-ghl-contact', express.json(), async (req, res) => {
+  console.log('POST request received to /create-update-ghl-contact');
+  try {
+    const { customerData } = req.body;
+    console.log('Customer data received', customerData);
+   
+    res.json({ success: true, message: 'Contact data received' });
+  } catch (err) {
+    console.error('Error creating GHL contact:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Webhook to handle successful payments (optional but recommended)
 app.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   let event;
